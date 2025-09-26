@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Construct New Building — Dashboard</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--muted:#6b7280;--accent:#2563eb;--success:#16a34a}
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+    body{background:var(--bg);padding:20px;color:#0f172a}
+    .container{max-width:1100px;margin:0 auto}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+
+    .phase{border:1px solid #eef2ff;padding:12px;border-radius:10px;margin-bottom:10px}
+    .phase-head{display:flex;justify-content:space-between;align-items:center}
+    .muted{color:var(--muted);font-size:12px}
+
+    .progress{height:8px;background:#eef2f6;border-radius:999px;overflow:hidden;margin-top:8px}
+    .progress-bar{height:100%;background:linear-gradient(90deg,#22c55e,#06b6d4);width:0}
+
+    ul.tasks{list-style:none;padding:0;margin:10px 0}
+    ul.tasks li{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px}
+    ul.tasks li.done{opacity:0.6;text-decoration:line-through}
+
+    .input-row{display:flex;gap:8px}
+    input[type=text],input[type=number],input[type=date],textarea{padding:8px;border-radius:8px;border:1px solid #e6e9ef;flex:1}
+    button{background:var(--accent);color:#fff;padding:8px 12px;border:none;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;color:var(--muted);border:1px solid #e6e9ef}
+    .small{padding:6px 8px;font-size:13px}
+    .aside-list{font-size:13px;color:var(--muted);margin-top:8px}
+
+    footer.note{margin-top:12px;font-size:12px;color:var(--muted)}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#fff;padding:8px;border-radius:8px}
+
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+  <!-- React + ReactDOM + Babel (for quick single-file prototyping) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Construct New Building — Dashboard</h1>
+        <p class="lead">Plan phases, track tasks, budget and timeline. Single-file React app — open this file in a browser.</p>
+      </div>
+      <div>
+        <button id="exportBtn" class="small">Export JSON</button>
+      </div>
+    </header>
+
+    <div id="root"></div>
+
+    <footer class="note">Tip: This demo stores data in <strong>localStorage</strong>. Use Export to copy JSON.</footer>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const SAMPLE = [
+      { id:1, name:'Planning & Approvals', start:'2025-10-01', end:'2025-10-15', budget:5000, tasks:[{id:1,text:'Site survey',done:false},{id:2,text:'Architect brief',done:false},{id:3,text:'Apply for permits',done:false}]},
+      { id:2, name:'Foundation & Structure', start:'2025-10-16', end:'2026-01-15', budget:45000, tasks:[{id:1,text:'Excavation',done:false},{id:2,text:'Pour foundation',done:false}]},
+      { id:3, name:'Finishing & Handover', start:'2026-01-16', end:'2026-03-31', budget:20000, tasks:[{id:1,text:'Electrical & Plumbing',done:false},{id:2,text:'Paint & finishes',done:false}]}
+    ];
+
+    function uid(){return Math.floor(Math.random()*1e9)}
+
+    function App(){
+      const [phases,setPhases] = useState(() => {
+        try {
+          const raw = localStorage.getItem('cnb:phases');
+          return raw ? JSON.parse(raw) : SAMPLE;
+        } catch(e){ return SAMPLE; }
+      });
+      const [newPhaseName,setNewPhaseName] = useState('');
+      const [selected, setSelected] = useState(null);
+
+      useEffect(()=>{ localStorage.setItem('cnb:phases', JSON.stringify(phases)) },[phases]);
+
+      const addPhase = ()=>{
+        if(!newPhaseName.trim()) return;
+        const p = { id: uid(), name:newPhaseName.trim(), start:'', end:'', budget:0, tasks:[] };
+        setPhases([...phases,p]); setNewPhaseName('');
+      };
+
+      const removePhase = (id)=> setPhases(phases.filter(p=>p.id!==id));
+
+      const addTask = (phaseId, text)=>{
+        if(!text || !text.trim()) return;
+        setPhases(phases.map(p=> p.id===phaseId ? { ...p, tasks:[...p.tasks, { id: uid(), text:text.trim(), done:false }] } : p));
+      };
+
+      const toggleTask = (phaseId,taskId)=>{
+        setPhases(phases.map(p=>{
+          if(p.id!==phaseId) return p;
+          return { ...p, tasks: p.tasks.map(t=> t.id===taskId ? { ...t, done:!t.done } : t) };
+        }));
+      };
+
+      const updatePhase = (id, data) => setPhases(phases.map(p=> p.id===id ? { ...p, ...data } : p));
+
+      const resetSample = ()=>{ setPhases(SAMPLE); localStorage.removeItem('cnb:phases') };
+
+      const exportJSON = ()=>{ const json = JSON.stringify(phases, null, 2); navigator.clipboard && navigator.clipboard.writeText(json).then(()=>alert('Project JSON copied to clipboard'), ()=>download(json)); };
+
+      const download = (json)=>{ const blob = new Blob([json],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='construct-new-building-project.json'; a.click(); URL.revokeObjectURL(url); };
+
+      // connect global export button
+      useEffect(()=>{
+        const el = document.getElementById('exportBtn');
+        el.onclick = exportJSON;
+        return ()=>{ if(el) el.onclick = null };
+      },[phases]);
+
+      const totalBudget = phases.reduce((s,p)=> s + Number(p.budget||0), 0);
+
+      return (
+        <div className="grid">
+          <div>
+            <div className="card">
+              {phases.map(p=> (
+                <div key={p.id} className="phase">
+                  <div className="phase-head">
+                    <div>
+                      <div style={{fontWeight:600}}>{p.name}</div>
+                      <div className="muted">{p.start||'Start: —'} • {p.end||'End: —'}</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:13,fontWeight:600}}>₹{Number(p.budget||0).toLocaleString()}</div>
+                      <div style={{marginTop:6,display:'flex',gap:6}}>
+                        <button className="ghost small" onClick={()=>setSelected(p.id)}>Edit</button>
+                        <button className="ghost small" onClick={()=>removePhase(p.id)}>Delete</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="progress"><div className="progress-bar" style={{width: phaseProgress(p)+'%'}}></div></div>
+                  <div className="muted" style={{marginTop:6}}>Progress: {phaseProgress(p)}%</div>
+
+                  <ul className="tasks">
+                    {p.tasks.map(t=> (
+                      <li key={t.id} className={t.done? 'done': ''}>
+                        <input type="checkbox" checked={t.done} onChange={()=>toggleTask(p.id,t.id)} />
+                        <div style={{flex:1}}>{t.text}</div>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <AddTaskForm onAdd={(text)=>addTask(p.id,text)} />
+                </div>
+              ))}
+
+              <div style={{marginTop:8}}>
+                <div className="input-row">
+                  <input type="text" placeholder="New phase name" value={newPhaseName} onChange={e=>setNewPhaseName(e.target.value)} />
+                  <button onClick={addPhase}>Add Phase</button>
+                  <button className="ghost" onClick={resetSample}>Reset</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside>
+            <div className="card">
+              <h3 style={{margin:0}}>Overview</h3>
+              <div className="aside-list">Phases: {phases.length}</div>
+              <div className="aside-list">Total Budget: ₹{totalBudget.toLocaleString()}</div>
+
+              <hr style={{margin:'12px 0'}} />
+              <h4 style={{margin:'6px 0'}}>Timeline</h4>
+              <div className="aside-list">
+                {phases.map(p=> <div key={p.id}>{p.name}: {p.start||'—'} → {p.end||'—'}</div>)}
+              </div>
+
+              <hr style={{margin:'12px 0'}} />
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={exportJSON}>Export</button>
+                <button className="ghost" onClick={()=>{ localStorage.removeItem('cnb:phases'); setPhases([]) }}>Clear</button>
+              </div>
+
+            </div>
+
+            <div style={{marginTop:12}} className="card">
+              <h4 style={{margin:0}}>Selected Phase</h4>
+              {selected ? <EditPhase p={phases.find(x=>x.id===selected)} onClose={()=>setSelected(null)} onSave={(data)=>{ updatePhase(selected,data); setSelected(null); }} /> : <div className="muted" style={{marginTop:8}}>No phase selected. Click Edit on a phase to update name, dates or budget.</div>}
+            </div>
+
+          </aside>
+        </div>
+      );
+    }
+
+    function phaseProgress(p){ if(!p.tasks || p.tasks.length===0) return 0; const done = p.tasks.filter(t=>t.done).length; return Math.round((done/p.tasks.length)*100); }
+
+    function AddTaskForm({onAdd}){
+      const [val,setVal] = React.useState('');
+      return (
+        <div style={{display:'flex',gap:8,marginTop:8}}>
+          <input type="text" placeholder="Add task..." value={val} onChange={e=>setVal(e.target.value)} />
+          <button onClick={()=>{ onAdd(val); setVal(''); }}>Add</button>
+        </div>
+      );
+    }
+
+    function EditPhase({p,onClose,onSave}){
+      const [name,setName] = useState(p?.name||'');
+      const [start,setStart] = useState(p?.start||'');
+      const [end,setEnd] = useState(p?.end||'');
+      const [budget,setBudget] = useState(p?.budget||0);
+      if(!p) return null;
+      return (
+        <div style={{marginTop:8}}>
+          <div style={{display:'grid',gap:8}}>
+            <input type="text" value={name} onChange={e=>setName(e.target.value)} />
+            <div style={{display:'flex',gap:8}}>
+              <input type="date" value={start} onChange={e=>setStart(e.target.value)} />
+              <input type="date" value={end} onChange={e=>setEnd(e.target.value)} />
+            </div>
+            <input type="number" value={budget} onChange={e=>setBudget(e.target.value)} />
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button className="ghost" onClick={onClose}>Close</button>
+              <button onClick={()=> onSave({ name, start, end, budget: Number(budget) })}>Save</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
